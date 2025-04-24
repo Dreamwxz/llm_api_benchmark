@@ -1,5 +1,11 @@
 # 大模型API测速工具配置指南
 
+## 安装依赖
+
+```bash
+pip install -r requirements.txt
+```
+
 ## 配置文件说明
 
 配置文件使用YAML格式，默认路径为`config.yaml`。主要包含以下部分：
