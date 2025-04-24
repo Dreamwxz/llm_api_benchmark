@@ -1,6 +1,9 @@
 import openai
 import time
 import yaml
+import json
+from datetime import datetime
+from pathlib import Path
 from tqdm import tqdm
 from typing import Dict, List, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -42,7 +45,7 @@ class OpenAIBenchmark:
         """
         return len(text) // 4  # 近似估算
     
-    def _test_single_model(self, provider_name: str, model_name: str, params: Dict) -> Tuple[float, int]:
+    def _test_single_model(self, provider_name: str, model_name: str, params: Dict) -> Tuple[float, int, str]:
         """测试单个模型性能
         
         Args:
@@ -51,7 +54,7 @@ class OpenAIBenchmark:
             params (Dict): 模型参数
             
         Returns:
-            Tuple[float, int]: (tokens/s速度, 总token数)
+            Tuple[float, int, str]: (tokens/s速度, 总token数, API响应内容)
         """
         client = self.clients[provider_name]
         prompt = self.config['test_prompt']
@@ -77,13 +80,36 @@ class OpenAIBenchmark:
         # 计算tokens/s
         speed = total_tokens / duration
         
-        return speed, total_tokens
+        return speed, total_tokens, response.choices[0].message.content
+    
+    def _save_log(self, results: Dict[str, Dict], responses: Dict[str, str]):
+        """保存JSON格式的测试日志
+        
+        Args:
+            results (Dict[str, Dict]): 测试结果数据
+            responses (Dict[str, str]): API响应内容
+        """
+        log_data = {
+            "timestamp": datetime.now().isoformat(),
+            "results": results,
+            "responses": responses
+        }
+        
+        log_dir = Path("logs")
+        log_dir.mkdir(exist_ok=True)
+        
+        log_file = log_dir / f"benchmark_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        
+        with open(log_file, 'w', encoding='utf-8') as f:
+            json.dump(log_data, f, indent=2, ensure_ascii=False)
+        
+        print(f"\n测试日志已保存到: {log_file}")
     
     def run_benchmark(self) -> Dict[str, Dict]:
         """运行所有模型的基准测试
         
         Returns:
-            Dict[str, Dict]: 测试结果 {模型名: {速度, token数}}
+            Dict[str, Dict]: 测试结果 {模型名: {速度, token数, 状态}}
         """
         results = {}
         # 收集所有模型测试任务
@@ -112,11 +138,12 @@ class OpenAIBenchmark:
             for future in tqdm(as_completed(futures), total=len(futures)):
                 model_name = futures[future]
                 try:
-                    speed, tokens = future.result()
+                    speed, tokens, response = future.result()
                     results[model_name] = {
                         'speed': round(speed, 2),
                         'tokens': tokens,
-                        'status': 'success'
+                        'status': 'success',
+                        'response': response
                     }
                 except Exception as e:
                     results[model_name] = {
@@ -124,6 +151,14 @@ class OpenAIBenchmark:
                         'tokens': 0,
                         'status': f'failed: {str(e)}'
                     }
+        
+        # 保存测试日志
+        responses = {
+            model: data.get('response', '')
+            for model, data in results.items()
+            if data['status'] == 'success'
+        }
+        self._save_log(results, responses)
         
         return results
     
@@ -142,7 +177,7 @@ class OpenAIBenchmark:
 
 if __name__ == "__main__":
     try:
-        benchmark = OpenAIBenchmark(max_workers=32)  # 增加默认并发数
+        benchmark = OpenAIBenchmark(max_workers=4)  # 增加默认并发数
         results = benchmark.run_benchmark()
         benchmark.print_results(results)
     except ValueError as e:
