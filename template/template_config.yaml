@@ -1,0 +1,31 @@
+# 大模型API测速工具配置示例(YAML格式)
+
+providers:
+  - name: "siliconflow"
+    base_url: "https://api.siliconflow.cn/v1"
+    api_key: "sk-xxxxxxxxxxxxxxxxxxxxxxxx"
+    models:
+      - name: "deepseek-ai/DeepSeek-V3"
+        params:
+          temperature: 0.7
+          max_tokens: 1000
+
+  - name: "aliyun"
+    base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    api_key: "sk-xxxxxxxxxxxxxxxxxxxxxxxx"
+    models:
+      - name: "deepseek-v3"
+        params:
+          temperature: 0.7
+          max_tokens: 1000
+
+  - name: "deepseek"
+    base_url: "https://api.deepseek.com/v1"
+    api_key: "sk-xxxxxxxxxxxxxxxxxxxxxxxx"
+    models:
+      - name: "deepseek-chat"
+        params:
+          temperature: 0.7
+          max_tokens: 1000
+
+test_prompt: "请用中文回答：大语言模型API性能测试的关键指标有哪些？"
